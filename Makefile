@@ -1,8 +1,9 @@
+
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 343
-EXTRAVERSION = -openela
+SUBLEVEL = 356
+EXTRAVERSION = +9
 NAME = Petit Gorille
 
 # *DOCUMENTATION*
@@ -824,10 +825,12 @@ KBUILD_CFLAGS	+= -fomit-frame-pointer
 endif
 endif
 
-# Initialize all stack variables with a pattern, if desired.
-ifdef CONFIG_INIT_STACK_ALL
-KBUILD_CFLAGS	+= -ftrivial-auto-var-init=pattern
-endif
+# Initialize all stack variables with a zero value.
+# Future support for zero initialization is still being debated, see
+# https://bugs.llvm.org/show_bug.cgi?id=45497. These flags are subject to being
+# renamed or dropped.
+KBUILD_CFLAGS  += -ftrivial-auto-var-init=zero
+KBUILD_CFLAGS  += $(call cc-option, -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang)
 
 KBUILD_CFLAGS   += $(call cc-option, -fno-var-tracking-assignments)
 
@@ -915,7 +918,8 @@ export LDFINAL_vmlinux LDFLAGS_FINAL_vmlinux
 endif
 
 ifdef CONFIG_CFI_CLANG
-cfi-clang-flags	+= -fsanitize=cfi -fno-sanitize-cfi-canonical-jump-tables
+cfi-clang-flags	+= -fsanitize=cfi -fno-sanitize-cfi-canonical-jump-tables \
+		   -fno-sanitize-blacklist
 DISABLE_CFI_CLANG := -fno-sanitize=cfi
 ifdef CONFIG_MODULES
 cfi-clang-flags	+= -fsanitize-cfi-cross-dso
@@ -1003,6 +1007,9 @@ KBUILD_CFLAGS   += $(call cc-option,-Werror=incompatible-pointer-types)
 
 # Require designated initializers for all marked structures
 KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init)
+
+# Ensure compilers do not transform certain loops into calls to wcslen()
+KBUILD_CFLAGS += -fno-builtin-wcslen
 
 # change __FILE__ to the relative path from the srctree
 KBUILD_CFLAGS	+= $(call cc-option,-fmacro-prefix-map=$(srctree)/=)
@@ -1805,6 +1812,7 @@ clean: $(clean-dirs)
 		-o -name '*.dwo'  \
 		-o -name '*.su'  \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
+		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name '*.c.[012]*.*' \
